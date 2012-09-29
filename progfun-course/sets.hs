@@ -11,24 +11,29 @@ union s1 s2 = MkSet $ \elem -> (contains s1 elem) || (contains s2 elem)
 intersect :: (Eq a) => Set a -> Set a -> Set a
 intersect s1 s2 = MkSet $ \elem -> (contains s1 elem) && (contains s2 elem)
 
-toList :: (Ord a, Enum a) => a -> a -> (Set a) -> [a]
-toList start end set = [x | x <- [start..end], (contains set x)]
-toListInts = toList (-1000) 1000
+-- univ is a 'universe' of possible values for set
+toList :: (Ord a, Enum a) => [a] -> (Set a) -> [a]
+toList univ set = [x | x <- univ, contains set x]
+toListInts = toList [-100..100]
 
 -- universal quantifier
-forall :: (Ord a, Enum a) => a -> a -> (a -> Bool) -> Set a -> Bool
-forall start end pred set = foldl (\x y -> x && (pred y)) True (toList start end set)
-forallInt = forall (-1000) 1000
+forall :: (Ord a, Enum a) => [a] -> (a -> Bool) -> Set a -> Bool
+--forall univ pred set = foldl (\x y -> x && (pred y)) True (toList univ set)
+forall [] _ _ = True
+forall (univ@curr:rest) pred set
+   | (contains set curr) && not (pred curr) = False
+   | otherwise = forall rest pred set
+forallInt = forall [-100..100]
 
 -- existential quantifier
-exists :: (Ord a, Enum a) => a -> a -> (a -> Bool) -> Set a -> Bool
-exists start end pred set = not $ forall start end (not.pred) set
-existsInt = exists (-1000) 1000
+exists :: (Ord a, Enum a) => [a] -> (a -> Bool) -> Set a -> Bool
+exists univ pred set = not $ forall univ (not.pred) set
+existsInt = exists [-100..100]
 
 -- this is very slow
-smap :: (Ord a, Enum a, Eq b) => a -> a -> (a -> b) -> Set a -> Set b
-smap start end f set = MkSet $ \mapped -> exists start end (\elem -> f elem == mapped) set
-smapInt f set = smap (-1000) 1000 f set
+smap :: (Ord a, Enum a, Ord b) => [a] -> (a -> b) -> Set a -> Set b
+smap univ f set = MkSet $ \mapped -> exists univ (\elem -> f elem == mapped) set
+smapInt f set = smap [-100..100] f set
 
 --instance Show a => Show (Set a) where
 --   (MkSet _) = "{}"
