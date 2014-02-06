@@ -1,0 +1,108 @@
+#lang racket
+
+(define fact
+  (lambda (n)
+    (if (< n 2) 1 (* n (fact (- n 1))))))
+
+(let ((g (lambda (h n)
+           (if (< n 2) 1 (* n (h h (- n 1)))))))
+  (g g 10))
+
+(let ((g (lambda (h)
+           (lambda (n)
+             (if (< n 2) 1 (* n ((h h) (- n 1))))))))
+  ((g g) 10))
+;; try this with another recursive function
+(define pred (lambda (x) (eq? 0 (remainder x 2))))
+
+;; uncurried
+(let ([filt (lambda (filtx fn xs)
+              (if (null? xs)
+                  null
+                  (if (fn (car xs))
+                      (cons (car xs) (filtx filtx fn (cdr xs)))
+                      (filtx filtx fn (cdr xs)))))])
+  (filt filt pred (list 0 1 2 3 4 5 6)))
+
+;; curried
+(let ([filt (lambda (filtx)
+              (lambda (fn)
+                (lambda (xs)
+                  (if (null? xs)
+                      null
+                      (if (fn (car xs))
+                          (cons (car xs) (((filtx filtx) fn) (cdr xs)))
+                          (((filtx filtx) fn) (cdr xs)))))))])
+  (((filt filt) pred) (list 0 1 2 3 4 5 6)))
+
+;; pull out (filtx filtx) as another parameter, call it q
+(let ([filt (lambda (filtx)
+              (lambda (fn)
+                (lambda (xs)
+                  (let ([f (lambda (q fnx xsx)
+                             (if (null? xsx)
+                                 null
+                                 (if (fnx (car xsx))
+                                     (cons (car xsx) ((q fnx) (cdr xsx)))
+                                     ((q fnx) (cdr xsx)))))])
+                    (f (filtx filtx) fn xs)))))])
+  (((filt filt) pred) (list 0 1 2 3 4 5 6)))
+
+;; pull out (filtx filtx) as another parameter, call it q
+(let ([filt (lambda (filtx)
+              (lambda (fn)
+                (lambda (xs)
+                  (let ([f (lambda (q fnx xsx)
+                             (if (null? xsx)
+                                 null
+                                 (if (fnx (car xsx))
+                                     (cons (car xsx) ((q fnx) (cdr xsx)))
+                                     ((q fnx) (cdr xsx)))))])
+                    (f (filtx filtx) fn xs)))))])
+  (((filt filt) pred) (list 0 1 2 3 4 5 6)))
+
+; pull definition of f out, and curry args
+(let ([f (lambda (q) 
+           (lambda (fn) 
+             (lambda (xs)
+               (if (null? xs)
+                   null
+                   (if (fn (car xs))
+                       (cons (car xs) ((q fn) (cdr xs)))
+                       ((q fn) (cdr xs)))))))])
+  (let ([filt (lambda (filtx)
+                (lambda (fn)
+                  (lambda (xs)
+                    (((f (filtx filtx)) fn) xs))))])
+    (((filt filt) pred) (list 0 1 2 3 4 5 6))))
+
+; pull f out. this function essentially performs one step in the recursion,
+; then calls q on the 'rest' of the computation, ie the tail of the list
+(define f (lambda (q) 
+           (lambda (fn) 
+             (lambda (xs)
+               (if (null? xs)
+                   null
+                   (if (fn (car xs))
+                       (cons (car xs) ((q fn) (cdr xs)))
+                       ((q fn) (cdr xs))))))))
+
+; to do only one step, return the passed in list (ie the tail)
+(define q-stop
+  (lambda (fn)
+    (lambda (xs)
+      xs)))
+(define f-one-step (f q-stop))
+((f-one-step pred) (list 0 1 2 3 4 5 6))
+((f-one-step pred) (list 1 2 3 4 5 6))
+((f-one-step pred) (list 2 3 4 5 6))
+((f-one-step pred) (list 3 4 5 6))
+((f-one-step pred) (list 4 5 6))
+((f-one-step pred) (list 5 6))
+((f-one-step pred) (list 6))
+
+; not define y (filt above) separately
+(define Y (lambda (f)
+            (let ((g (lambda (h)
+                       (lambda (x) ((f (h h)) x)))))
+              (g g))))
